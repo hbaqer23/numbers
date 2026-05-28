@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#4dabf7">
+<title>123 Counting</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg1:#dff1ff;
+    --bg2:#e6fff3;
+    --ink:#16324a;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; }
+  body{
+    font-family:'Fredoka', system-ui, sans-serif;
+    background:
+      radial-gradient(120% 90% at 50% -10%, var(--bg2), transparent 60%),
+      linear-gradient(160deg, var(--bg1), #eafff6 70%);
+    color:var(--ink);
+    min-height:100%;
+    overflow-x:hidden;
+    user-select:none;
+    -webkit-user-select:none;
+    touch-action:manipulation;
+  }
+
+  /* ---------- Title ---------- */
+  header{ text-align:center; padding:22px 16px 6px; }
+  header h1{
+    font-size:clamp(30px, 9vw, 54px);
+    font-weight:700;
+    line-height:1;
+  }
+  header h1 .n1{ color:#ff5a8a; }
+  header h1 .n2{ color:#ff9f1c; }
+  header h1 .n3{ color:#2ec4b6; }
+  header p{
+    font-size:clamp(15px, 4vw, 19px);
+    font-weight:500;
+    opacity:.65;
+    margin-top:6px;
+  }
+
+  /* ---------- Number grid ---------- */
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:12px;
+    padding:18px 16px 40px;
+    max-width:560px;
+    margin:0 auto;
+  }
+  @media (min-width:560px){
+    .grid{ grid-template-columns:repeat(5, 1fr); }
+  }
+  .key{
+    aspect-ratio:1 / 1;
+    border:none;
+    border-radius:22px;
+    font-family:inherit;
+    font-weight:700;
+    font-size:clamp(28px, 9vw, 46px);
+    color:#fff;
+    cursor:pointer;
+    box-shadow:0 7px 0 rgba(0,0,0,.18), 0 12px 18px rgba(0,0,0,.12);
+    transition:transform .08s ease, box-shadow .08s ease;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .key:active{
+    transform:translateY(5px) scale(.96);
+    box-shadow:0 2px 0 rgba(0,0,0,.18), 0 5px 10px rgba(0,0,0,.12);
+  }
+
+  /* ---------- Big counting overlay ---------- */
+  .stage{
+    position:fixed; inset:0;
+    display:none;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    z-index:50;
+    cursor:pointer;
+    overflow:hidden;
+    padding:70px 18px 70px;
+  }
+  .stage.show{ display:flex; }
+  .stage .num-tag{
+    position:absolute;
+    top:18px; left:50%;
+    transform:translateX(-50%);
+    font-size:clamp(56px, 20vw, 130px);
+    font-weight:700;
+    color:#fff;
+    text-shadow:0 5px 0 rgba(0,0,0,.18);
+    line-height:1;
+  }
+  .objects{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:center;
+    gap:6px 10px;
+    max-width:760px;
+  }
+  .objects span{
+    line-height:1;
+    filter:drop-shadow(0 8px 8px rgba(0,0,0,.18));
+    animation:popIn .4s cubic-bezier(.2,1.4,.4,1) both;
+  }
+  .stage .word{
+    margin-top:14px;
+    font-size:clamp(30px, 9vw, 60px);
+    font-weight:700;
+    color:#fff;
+    text-shadow:0 4px 0 rgba(0,0,0,.18);
+    text-transform:capitalize;
+  }
+  .stage .hint{
+    position:absolute;
+    bottom:24px;
+    color:#fff;
+    font-size:clamp(15px,4.5vw,21px);
+    font-weight:600;
+    opacity:.85;
+    animation:pulse 1.6s ease-in-out infinite;
+  }
+
+  @keyframes popIn{
+    0%{ opacity:0; transform:scale(0) rotate(-20deg); }
+    100%{ opacity:1; transform:scale(1) rotate(0deg); }
+  }
+  @keyframes pulse{ 0%,100%{ opacity:.5; } 50%{ opacity:1; } }
+
+  .spark{
+    position:absolute;
+    font-size:30px;
+    pointer-events:none;
+    animation:fly 1s ease-out forwards;
+  }
+  @keyframes fly{
+    0%{ opacity:1; transform:translate(0,0) scale(.4); }
+    100%{ opacity:0; transform:translate(var(--dx), var(--dy)) scale(1.3); }
+  }
+</style>
+</head>
+<body>
+
+  <header>
+    <h1><span class="n1">1</span><span class="n2">2</span><span class="n3">3</span> Counting</h1>
+    <p>Tap a number! 🔢</p>
+  </header>
+
+  <main class="grid" id="grid"></main>
+
+  <div class="stage" id="stage" onclick="closeStage()">
+    <div class="num-tag" id="numTag">1</div>
+    <div class="objects" id="objects"></div>
+    <div class="word" id="word">one</div>
+    <div class="hint">tap to go back 👆</div>
+  </div>
+
+<script>
+  /* ====== EDIT HERE: change any number's picture or colour ====== */
+  const NUMBERS = [
+    { n:1,  word:"one",       emoji:"⭐", color:"#f1c40f" },
+    { n:2,  word:"two",       emoji:"🍎", color:"#e74c3c" },
+    { n:3,  word:"three",     emoji:"🎈", color:"#ff5a8a" },
+    { n:4,  word:"four",      emoji:"🐠", color:"#3498db" },
+    { n:5,  word:"five",      emoji:"🦆", color:"#f39c12" },
+    { n:6,  word:"six",       emoji:"🌸", color:"#ff6fae" },
+    { n:7,  word:"seven",     emoji:"🚗", color:"#e67e22" },
+    { n:8,  word:"eight",     emoji:"🍓", color:"#e84393" },
+    { n:9,  word:"nine",      emoji:"🦋", color:"#6c5ce7" },
+    { n:10, word:"ten",       emoji:"🐝", color:"#f0a500" },
+    { n:11, word:"eleven",    emoji:"🍊", color:"#fd9644" },
+    { n:12, word:"twelve",    emoji:"🌼", color:"#d4a017" },
+    { n:13, word:"thirteen",  emoji:"🐞", color:"#d63031" },
+    { n:14, word:"fourteen",  emoji:"🍇", color:"#8e44ad" },
+    { n:15, word:"fifteen",   emoji:"🐢", color:"#27ae60" },
+    { n:16, word:"sixteen",   emoji:"🌈", color:"#00b894" },
+    { n:17, word:"seventeen", emoji:"🍒", color:"#c0392b" },
+    { n:18, word:"eighteen",  emoji:"🐬", color:"#0984e3" },
+    { n:19, word:"nineteen",  emoji:"🍋", color:"#e6b800" },
+    { n:20, word:"twenty",    emoji:"🎉", color:"#9b59b6" },
+  ];
+  /* ============================================================== */
+
+  const grid = document.getElementById("grid");
+  const stage = document.getElementById("stage");
+  const numTag = document.getElementById("numTag");
+  const objects = document.getElementById("objects");
+  const wordEl = document.getElementById("word");
+
+  NUMBERS.forEach(item=>{
+    const btn = document.createElement("button");
+    btn.className = "key";
+    btn.style.background = item.color;
+    btn.textContent = item.n;
+    btn.addEventListener("click", ()=> openNumber(item));
+    grid.appendChild(btn);
+  });
+
+  // ---- Speech ----
+  let voices = [];
+  function loadVoices(){ voices = window.speechSynthesis ? speechSynthesis.getVoices() : []; }
+  if(window.speechSynthesis){ loadVoices(); speechSynthesis.onvoiceschanged = loadVoices; }
+  function say(text){
+    if(!window.speechSynthesis) return;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 0.85; u.pitch = 1.15;
+    const en = voices.find(v=>/en[-_]/i.test(v.lang)) || voices[0];
+    if(en) u.voice = en;
+    speechSynthesis.speak(u);
+  }
+
+  // pick an emoji size that fits the count nicely
+  function sizeFor(n){
+    if(n <= 5)  return "clamp(70px, 22vw, 130px)";
+    if(n <= 10) return "clamp(48px, 15vw, 90px)";
+    if(n <= 15) return "clamp(38px, 12vw, 70px)";
+    return "clamp(30px, 9vw, 56px)";
+  }
+
+  function openNumber(item){
+    numTag.textContent = item.n;
+    wordEl.textContent = item.word;
+    const size = sizeFor(item.n);
+    objects.innerHTML = "";
+    for(let i=0;i<item.n;i++){
+      const s = document.createElement("span");
+      s.textContent = item.emoji;
+      s.style.fontSize = size;
+      s.style.animationDelay = (i * 0.05) + "s";  // pop in one after another
+      objects.appendChild(s);
+    }
+    stage.style.background =
+      `radial-gradient(120% 90% at 50% 0%, ${lighten(item.color)}, ${item.color})`;
+    stage.classList.add("show");
+    sparkle();
+    say(item.word + "!");
+  }
+
+  // tap the objects area to hear it again
+  objects.addEventListener("click",(e)=>{
+    e.stopPropagation();
+    say(wordEl.textContent + "!");
+    [...objects.children].forEach((s,i)=>{
+      s.style.animation = "none";
+      void s.offsetWidth;
+      s.style.animation = "popIn .4s cubic-bezier(.2,1.4,.4,1) both";
+      s.style.animationDelay = (i*0.05) + "s";
+    });
+    sparkle();
+  });
+
+  function closeStage(){
+    if(window.speechSynthesis) speechSynthesis.cancel();
+    stage.classList.remove("show");
+  }
+
+  function sparkle(){
+    const e = ["⭐","✨","🌟","💫"];
+    for(let i=0;i<8;i++){
+      const s = document.createElement("div");
+      s.className = "spark";
+      s.textContent = e[i % e.length];
+      const ang = (Math.PI*2)*(i/8);
+      s.style.setProperty("--dx", Math.cos(ang)*150 + "px");
+      s.style.setProperty("--dy", Math.sin(ang)*150 + "px");
+      s.style.left = "50%"; s.style.top = "20%";
+      stage.appendChild(s);
+      setTimeout(()=> s.remove(), 1000);
+    }
+  }
+
+  function lighten(hex){
+    const x = parseInt(hex.slice(1),16);
+    let r=Math.min(255,(x>>16)+50), g=Math.min(255,((x>>8)&255)+50), b=Math.min(255,(x&255)+50);
+    return `rgb(${r},${g},${b})`;
+  }
+
+  // physical keyboard support (type a number then Enter)
+  let buffer = "";
+  document.addEventListener("keydown",(e)=>{
+    if(e.key === "Escape"){ closeStage(); buffer=""; return; }
+    if(/[0-9]/.test(e.key)){
+      buffer += e.key;
+      const item = NUMBERS.find(x=> x.n === parseInt(buffer));
+      if(item) openNumber(item);
+      if(buffer.length >= 2) buffer = "";
+    }
+  });
+</script>
+</body>
+</html>
